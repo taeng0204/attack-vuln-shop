@@ -1,0 +1,2 @@
+# Ignore Claude configuration artifacts anywhere in the repo
+.claude*
